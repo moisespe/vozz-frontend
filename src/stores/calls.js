@@ -1,0 +1,132 @@
+import { defineStore } from 'pinia'
+import { api } from '../services/api.js'
+
+const CONTACTS_KEY = 'vozz_contacts'
+const REJECTED_KEY = 'vozz_rejected'
+
+function loadContacts() {
+  try { return JSON.parse(localStorage.getItem(CONTACTS_KEY) || '[]') } catch { return [] }
+}
+
+function loadRejected() {
+  try { return JSON.parse(localStorage.getItem(REJECTED_KEY) || '[]') } catch { return [] }
+}
+
+export const useCallStore = defineStore('calls', {
+  state: () => ({
+    calls: [],
+    loading: false,
+    contacts: loadContacts(),
+    allUsers: [],
+    channels: [],
+    invitations: [],
+    rejectedPairs: loadRejected(),
+  }),
+
+  getters: {
+    onlineContacts: (state) => state.contacts,
+    offlineContacts: (state) => [],
+    activeChannel: (state) => state.channels.find(c => c.active) || null,
+    pendingInvitations: (state) => state.invitations.filter(i => !state.rejectedPairs.includes(`${i.from_id}-${i.to_id}`)),
+  },
+
+  actions: {
+    _saveContacts() {
+      localStorage.setItem(CONTACTS_KEY, JSON.stringify(this.contacts))
+    },
+
+    toggleChannel(channelId, userName) {
+      this.channels.forEach(c => {
+        if (c.id === channelId) {
+          if (!c.active) { c.active = true; if (userName && !c.members.includes(userName)) c.members.push(userName) }
+          else { c.active = false; if (userName) c.members = c.members.filter(m => m !== userName) }
+        } else { c.active = false }
+      })
+    },
+
+    createChannel(name, description) {
+      const id = Math.max(0, ...this.channels.map(c => c.id)) + 1
+      this.channels.push({ id, name, description, members: [], active: false })
+      return this.channels[this.channels.length - 1]
+    },
+
+    async fetchAllUsers() {
+      try {
+        const data = await api.listUsers()
+        this.allUsers = (data.users || []).map(u => ({
+          id: u.id, name: u.name || u.email?.split('@')[0] || 'Usuario', email: u.email, role: u.role
+        }))
+      } catch { this.allUsers = [] }
+    },
+
+    async fetchContacts(userId) {
+      try {
+        const data = await api.listContacts(userId)
+        if (data.contacts && data.contacts.length > 0) {
+          this.contacts = data.contacts.map(c => ({
+            id: c.user_id, name: c.name, email: c.email, description: ''
+          }))
+          this._saveContacts()
+        }
+        // Si el API devuelve vacío, mantener los contactos locales
+      } catch {
+        // Mantener los contactos cacheados en caso de error
+      }
+    },
+
+    async fetchInvitations(userId) {
+      try {
+        const data = await api.listInvitations(userId)
+        this.invitations = data.invitations || []
+      } catch { this.invitations = [] }
+    },
+
+    async sendInvite(fromId, toId, fromName) {
+      await api.inviteContact(fromId, toId, fromName)
+    },
+
+    async acceptInvite(userId, fromId, fromName) {
+      await api.acceptContact(userId, fromId)
+      this.invitations = this.invitations.filter(i => !(i.from_id === fromId && i.to_id === userId))
+      const name = fromName || this.allUsers.find(u => u.id === fromId)?.name || 'Contacto'
+      if (!this.contacts.find(c => c.id === fromId)) {
+        this.contacts.push({ id: fromId, name, email: '', description: '' })
+        this._saveContacts()
+      }
+      api.listContacts(userId).then(data => {
+        if (data.contacts && data.contacts.length > 0) {
+          this.contacts = data.contacts.map(c => ({
+            id: c.user_id, name: c.name, email: c.email, description: ''
+          }))
+          this._saveContacts()
+        }
+      }).catch(() => {})
+    },
+
+    async rejectInvite(userId, fromId) {
+      try { await api.rejectContact(userId, fromId) } catch {}
+      this.invitations = this.invitations.filter(i => !(i.from_id === fromId && i.to_id === userId))
+      const key = `${fromId}-${userId}`
+      if (!this.rejectedPairs.includes(key)) {
+        this.rejectedPairs.push(key)
+        localStorage.setItem(REJECTED_KEY, JSON.stringify(this.rejectedPairs))
+      }
+    },
+
+    _clearRejected() {
+      localStorage.removeItem(REJECTED_KEY)
+    },
+
+    async removeContact(userId, targetId) {
+      try { await api.removeContact(userId, targetId) } catch {}
+      this.contacts = this.contacts.filter(c => c.id !== targetId)
+      this._saveContacts()
+    },
+
+    async getStats() {
+      return { todayCalls: 0, totalMinutes: 0, contactsCount: this.contacts.length }
+    },
+
+    async getRecentCalls() { return [] },
+  }
+})

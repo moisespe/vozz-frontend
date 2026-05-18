@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+  --color-card: #0a0a0a;
+  --color-card-foreground: #ffffff;
+  --color-primary: #cccccc;
+  --color-primary-foreground: #000000;
+  --color-secondary: #1a1a1a;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #111111;
+  --color-muted-foreground: #666666;
+  --color-accent: #1a1a1a;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #8b0000;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #1a1a1a;
+  --color-input: #1a1a1a;
+  --color-ring: #cccccc;
+  --radius: 0.5rem;
+}
+
+.theme-light {
+  --color-background: #f5f5f5;
+  --color-foreground: #111111;
+  --color-card: #ffffff;
+  --color-card-foreground: #111111;
+  --color-primary: #333333;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #d4d4d4;
+  --color-secondary-foreground: #111111;
+  --color-muted: #e5e5e5;
+  --color-muted-foreground: #888888;
+  --color-accent: #d4d4d4;
+  --color-accent-foreground: #111111;
+  --color-destructive: #cc0000;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #d4d4d4;
+  --color-input: #d4d4d4;
+  --color-ring: #333333;
+}
+
+.theme-contrast {
+  --color-background: #000000;
+  --color-foreground: #ffffff;
+  --color-card: #000000;
+  --color-card-foreground: #ffffff;
+  --color-primary: #ffffff;
+  --color-primary-foreground: #000000;
+  --color-secondary: #1a1a1a;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #000000;
+  --color-muted-foreground: #cccccc;
+  --color-accent: #1a1a1a;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #ff4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #ffffff;
+  --color-input: #ffffff;
+  --color-ring: #ffffff;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  5% { transform: translateX(-12px) rotate(-2.5deg); }
+  10% { transform: translateX(10px) rotate(2deg); }
+  15% { transform: translateX(-8px) rotate(-1.5deg); }
+  20% { transform: translateX(8px) rotate(1.5deg); }
+  30% { transform: translateX(-6px) rotate(-1deg); }
+  40% { transform: translateX(5px) rotate(0.5deg); }
+  50% { transform: translateX(-3px); }
+  65% { transform: translateX(2px); }
+  80% { transform: translateX(-1px); }
+}
+
+@keyframes buzz-flash {
+  0% { background-color: rgba(139, 0, 0, 0); }
+  10% { background-color: rgba(139, 0, 0, 0.15); }
+  30% { background-color: rgba(139, 0, 0, 0.08); }
+  50% { background-color: rgba(139, 0, 0, 0.12); }
+  70% { background-color: rgba(139, 0, 0, 0.05); }
+  100% { background-color: rgba(139, 0, 0, 0); }
+}
+
+.animate-shake { animation: shake 0.6s ease-in-out; }
+.animate-buzz-flash { animation: buzz-flash 0.8s ease-in-out; }
