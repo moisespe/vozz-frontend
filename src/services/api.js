@@ -43,6 +43,9 @@ export const api = {
   sendMessage: (fromId, toId, text) =>
     request('/api/messages/send', { method: 'POST', body: JSON.stringify({ from_id: fromId, to_id: toId, text }) }),
 
+  getConversation: (uid1, uid2) =>
+    request(`/api/messages/conversation?uid1=${uid1}&uid2=${uid2}`),
+
   inviteContact: (fromId, toId, fromName) =>
     request('/api/contacts/invite', { method: 'POST', body: JSON.stringify({ from_id: fromId, to_id: toId, from_name: fromName }) }),
 

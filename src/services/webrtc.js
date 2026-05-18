@@ -14,11 +14,22 @@ export function setOnRemoteStream(cb) {
 export async function startLocalStream() {
   if (localStream) return localStream
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    const savedInput = localStorage.getItem('vozz_audio_input')
+    const constraints = { audio: true, video: false }
+    if (savedInput) {
+      constraints.audio = { deviceId: { exact: savedInput } }
+    }
+    localStream = await navigator.mediaDevices.getUserMedia(constraints)
     return localStream
   } catch (e) {
     console.warn('[WebRTC] Error getting microphone:', e)
-    return null
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      return localStream
+    } catch (e2) {
+      console.warn('[WebRTC] Fallback mic also failed:', e2)
+      return null
+    }
   }
 }
 
@@ -33,6 +44,10 @@ export function createRemoteAudio() {
   if (!remoteAudio) {
     remoteAudio = new Audio()
     remoteAudio.autoplay = true
+    const savedOutput = localStorage.getItem('vozz_audio_output')
+    if (savedOutput && remoteAudio.setSinkId) {
+      remoteAudio.setSinkId(savedOutput).catch(() => {})
+    }
   }
   return remoteAudio
 }
@@ -117,5 +132,11 @@ export function hangup() {
   if (remoteAudio) {
     remoteAudio.srcObject = null
     remoteAudio = null
+  }
+}
+
+export function applyOutputDevice(deviceId) {
+  if (remoteAudio && remoteAudio.setSinkId) {
+    remoteAudio.setSinkId(deviceId).catch(() => {})
   }
 }

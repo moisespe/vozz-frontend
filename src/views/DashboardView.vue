@@ -256,7 +256,10 @@
         <div class="flex-1 overflow-y-auto px-3 py-1">
           <div v-for="contact in filteredMobileContacts" :key="contact.id"
             class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent/40 cursor-pointer transition-colors">
-            <button @click.stop="showProfile(contact)" class="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all">{{ contact.name.charAt(0).toUpperCase() }}</button>
+            <button @click.stop="showProfile(contact)" class="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative">
+              {{ contact.name.charAt(0).toUpperCase() }}
+              <span v-if="chatStore.unread[contact.id]" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-destructive"></span>
+            </button>
             <p class="text-sm text-foreground truncate flex-1 cursor-pointer" @click="openMobileChat(contact)">{{ contact.name }}</p>
           </div>
           <div v-if="filteredMobileContacts.length===0" class="text-center py-8 text-muted-foreground text-sm">Sin resultados</div>
@@ -275,7 +278,7 @@
       </div>
 
       <!-- ============ MÓVIL: CHAT ABIERTO ============ -->
-      <div v-if="section==='contacts' && chatOpen" class="flex-1 flex flex-col min-w-0">
+      <div v-if="section==='contacts' && chatOpen" class="flex-1 flex flex-col min-w-0 min-h-0">
         <!-- Header con botón volver -->
         <div class="flex items-center gap-3 px-3 py-2.5 border-b border-input bg-card shrink-0">
           <button @click="closeMobileChat" class="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors">
@@ -294,7 +297,7 @@
           </div>
         </div>
 
-        <div ref="messagesContainer" class="flex-1 overflow-y-auto p-3 space-y-3">
+        <div ref="messagesContainer" class="flex-1 overflow-y-auto p-3 space-y-3 messages-scroll">
           <div v-if="currentMessages.length===0" class="text-center py-10 text-muted-foreground text-sm">No hay mensajes aún</div>
           <div v-for="msg in currentMessages" :key="msg.id" class="flex" :class="msg.from==='me'?'justify-end':'justify-start'">
             <div class="max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words"
@@ -509,11 +512,11 @@
       </div>
 
       <!-- ============ ESCRITORIO: sección Chats ============ -->
-      <div v-if="section==='chats'" class="flex-1 flex flex-col min-w-0">
+      <div v-if="section==='chats'" class="flex-1 flex flex-col min-w-0 min-h-0">
         <div v-if="openChats.length===0" class="flex-1 flex items-center justify-center text-muted-foreground text-sm p-8 text-center">
           <div><svg class="w-12 h-12 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg><p>Toca un contacto para iniciar un chat</p></div>
         </div>
-        <div v-else class="flex-1 flex flex-col min-w-0">
+        <div v-else class="flex-1 flex flex-col min-w-0 min-h-0">
           <div class="flex items-center border-b border-input bg-card overflow-x-auto shrink-0">
             <div v-for="chat in openChats" :key="chat.id"
               class="flex items-center gap-2 px-3 lg:px-4 py-2.5 text-sm font-medium cursor-pointer border-b-2 transition-colors shrink-0"
@@ -521,10 +524,11 @@
               @click="chatStore.setActiveChat(chat.id)">
               <span class="w-2 h-2 rounded-full shrink-0" :class="chat.online?'bg-green-500':'bg-muted-foreground'"></span>
               <span class="truncate max-w-20 lg:max-w-28">{{ chat.name }}</span>
+              <span v-if="chat.unread>0 && chatStore.activeChatId!==chat.id" class="bg-destructive text-white text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1">{{ chat.unread }}</span>
               <button @click.stop="chatStore.closeChat(chat.id)" class="text-muted-foreground hover:text-foreground ml-0.5 leading-none shrink-0">&times;</button>
             </div>
           </div>
-          <div class="flex-1 flex flex-col min-w-0" :class="{'animate-shake': chatStore.isBuzzing(chatStore.activeChatId)}">
+          <div class="flex-1 flex flex-col min-w-0 min-h-0" :class="{'animate-shake': chatStore.isBuzzing(chatStore.activeChatId)}">
             <div v-if="activeChatData" class="flex items-center justify-between px-3 lg:px-6 py-2.5 border-b border-input bg-card shrink-0">
               <div class="flex items-center gap-2.5 min-w-0">
                 <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">{{ activeChatData.name.charAt(0).toUpperCase() }}</div>
@@ -535,7 +539,7 @@
                 <button @click.stop="callFromChat" class="p-2 rounded-lg text-green-400 hover:bg-green-500/10 transition-colors text-sm">📞</button>
               </div>
             </div>
-            <div ref="messagesContainer" class="flex-1 overflow-y-auto p-3 lg:p-6 space-y-3">
+            <div ref="messagesContainer" class="flex-1 overflow-y-auto p-3 lg:p-6 space-y-3 messages-scroll">
               <div v-for="msg in currentMessages" :key="msg.id" class="flex" :class="msg.from==='me'?'justify-end':'justify-start'">
                 <div class="max-w-[80%] lg:max-w-md px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words"
                    :class="msg.type==='buzz'?'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 italic text-center w-full':msg.from==='me'?'bg-primary text-primary-foreground rounded-br-md':'bg-card border border-input text-foreground rounded-bl-md'">
@@ -643,7 +647,10 @@
              <div v-if="callStore.contacts.length === 0" class="text-xs text-muted-foreground px-2 py-1">Sin contactos agregados</div>
              <div v-for="contact in callStore.contacts" :key="contact.id"
               class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/40 cursor-pointer transition-colors group">
-              <button @click.stop="showProfile(contact)" class="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all">{{ contact.name.charAt(0).toUpperCase() }}</button>
+              <button @click.stop="showProfile(contact)" class="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative">
+                {{ contact.name.charAt(0).toUpperCase() }}
+                <span v-if="chatStore.unread[contact.id]" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-destructive"></span>
+              </button>
               <p class="text-xs text-foreground truncate flex-1 cursor-pointer" @click="openChatWithContact(contact)">{{ contact.name }}</p>
             </div>
             </div>
@@ -781,7 +788,7 @@ const contacts = computed(() => callStore.contacts)
 const filteredMobileContacts = computed(() => callStore.contacts.filter(c => c.name.toLowerCase().includes(mobileSearch.value.toLowerCase())))
 const openChats = computed(() => chatStore.openChats)
 const currentMessages = computed(() => chatStore.activeChatId ? chatStore.getMessages(chatStore.activeChatId) : [])
-const totalUnread = computed(() => openChats.value.length)
+const totalUnread = computed(() => chatStore.totalUnread)
 const showInstall = computed(() => window.__installPrompt ? true : false)
 
 const openSettings = () => {
@@ -845,8 +852,10 @@ const requestAudioPermissions = async () => {
     const devices = await navigator.mediaDevices.enumerateDevices()
     audioInputs.value = devices.filter(d => d.kind === 'audioinput')
     audioOutputs.value = devices.filter(d => d.kind === 'audiooutput')
-    if (audioInputs.value.length) selectedInput.value = audioInputs.value[0].deviceId
-    if (audioOutputs.value.length) selectedOutput.value = audioOutputs.value[0].deviceId
+    const savedInput = localStorage.getItem('vozz_audio_input')
+    const savedOutput = localStorage.getItem('vozz_audio_output')
+    selectedInput.value = savedInput && audioInputs.value.find(d => d.deviceId === savedInput) ? savedInput : (audioInputs.value[0]?.deviceId || '')
+    selectedOutput.value = savedOutput && audioOutputs.value.find(d => d.deviceId === savedOutput) ? savedOutput : (audioOutputs.value[0]?.deviceId || '')
   } catch (e) {
     permGranted.value = false
     console.warn('Permiso de audio denegado:', e)
@@ -856,8 +865,13 @@ const requestAudioPermissions = async () => {
 }
 
 const applyAudioDevice = (type, deviceId) => {
-  if (type === 'output' && deviceId) localStorage.setItem('vozz_audio_output', deviceId)
-  if (type === 'input' && deviceId) localStorage.setItem('vozz_audio_input', deviceId)
+  if (type === 'output' && deviceId) {
+    localStorage.setItem('vozz_audio_output', deviceId)
+    import('../services/webrtc.js').then(w => w.applyOutputDevice(deviceId))
+  }
+  if (type === 'input' && deviceId) {
+    localStorage.setItem('vozz_audio_input', deviceId)
+  }
 }
 
 const changeNotifySound = async () => {
@@ -938,12 +952,16 @@ const createChannel = () => {
 
 const openChatWithContact = (contact) => {
   chatStore.openChat(contact)
+  const uid = authStore.user?.id
+  if (uid) chatStore.loadConversation(uid, contact.id).then(() => nextTick(scrollToBottom))
   section.value = window.innerWidth >= 1024 ? 'chats' : 'contacts'
   if (window.innerWidth < 1024) chatOpen.value = true
 }
 
 const openMobileChat = (contact) => {
   chatStore.openChat(contact)
+  const uid = authStore.user?.id
+  if (uid) chatStore.loadConversation(uid, contact.id).then(() => nextTick(scrollToBottom))
   chatOpen.value = true
 }
 
@@ -952,10 +970,9 @@ const closeMobileChat = () => {
 }
 
 const sendMessage = () => {
-  if (!newMessage.trim() || !chatStore.activeChatId) return
-  chatStore.sendMessage(chatStore.activeChatId, newMessage.value)
+  if (!newMessage.value.trim() || !chatStore.activeChatId) return
+  chatStore.sendMessage(chatStore.activeChatId, newMessage.value.trim())
   newMessage.value = ''
-  nextTick(scrollToBottom)
 }
 
 const sendBuzz = () => {
@@ -1105,6 +1122,7 @@ const installApp = () => {
 }
 
 watch(() => chatStore.activeChatId, () => nextTick(scrollToBottom))
+watch(() => chatStore.activeChatId ? chatStore.conversations[chatStore.activeChatId]?.length : 0, () => nextTick(scrollToBottom))
 
 onMounted(async () => {
   try {
@@ -1227,11 +1245,26 @@ onMounted(async () => {
       onWS('message:new', (msg) => {
         const uid = authStore.user?.id
         if (!uid || msg.from_id === uid) return
-        chatStore.receiveMessage(msg.from_id, msg.payload)
+        chatStore.receiveMessage(uid, msg.from_id, msg.payload)
+      })
+
+      onWS('buzz', (msg) => {
+        const uid = authStore.user?.id
+        if (!uid || msg.from_id === uid) return
+        chatStore.receiveBuzz(msg.from_id)
+        globalBuzz.value = true
+        setTimeout(() => { globalBuzz.value = false }, 800)
         if (!chatStore.isChatOpen(msg.from_id)) {
           const contact = callStore.contacts.find(c => c.id === msg.from_id)
-          if (contact) chatStore.openChat(contact)
+          if (contact) {
+            chatStore.openChat(contact)
+          } else {
+            chatStore.openChat({ id: msg.from_id, name: msg.from_name || 'Contacto' })
+          }
         }
+        chatStore.unread[msg.from_id] = 0
+        if (window.innerWidth >= 1024) section.value = 'chats'
+        else chatOpen.value = true
       })
 
       // Polling de invitaciones y contactos cada 5s como respaldo
@@ -1260,4 +1293,11 @@ onUnmounted(() => {
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0.5rem); }
 @media (max-width: 1023px) { .pb-16 { padding-bottom: 4.5rem; } }
 @media (min-width: 1024px) { .pb-16 { padding-bottom: 0; } }
+
+/* Scrollbar visible para el historial de mensajes */
+.messages-scroll::-webkit-scrollbar { width: 6px; }
+.messages-scroll::-webkit-scrollbar-track { background: transparent; }
+.messages-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.messages-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+.messages-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
 </style>
