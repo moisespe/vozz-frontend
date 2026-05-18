@@ -46,6 +46,9 @@ export const api = {
   getConversation: (uid1, uid2) =>
     request(`/api/messages/conversation?uid1=${uid1}&uid2=${uid2}`),
 
+  deleteConversation: (uid1, uid2) =>
+    request('/api/messages/delete-conversation', { method: 'POST', body: JSON.stringify({ uid1, uid2 }) }),
+
   inviteContact: (fromId, toId, fromName) =>
     request('/api/contacts/invite', { method: 'POST', body: JSON.stringify({ from_id: fromId, to_id: toId, from_name: fromName }) }),
 

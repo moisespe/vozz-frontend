@@ -53,7 +53,10 @@ export const useAuthStore = defineStore('auth', {
 
     async logout() {
       this.user = null; this.token = ''
-      try { localStorage.clear() } catch {}
+      try {
+        localStorage.removeItem('token')
+        localStorage.removeItem('vozz_login_email')
+      } catch {}
       try { sessionStorage.clear() } catch {}
       try { document.cookie.split(';').forEach(c => { document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/') }) } catch {}
       if ('caches' in window) { try { const k = await caches.keys(); await Promise.all(k.map(x => caches.delete(x))) } catch {} }

@@ -49,10 +49,10 @@ export const useChatStore = defineStore('chat', {
 
     async loadConversation(userId, contactId) {
       this.initConversation(contactId)
-      if (this.conversations[contactId].length > 0) return
       try {
         const data = await api.getConversation(userId, contactId)
         if (data.messages) {
+          const localCount = this.conversations[contactId].length
           this.conversations[contactId] = data.messages.map(m => ({
             id: m.id,
             from: m.from_id === userId ? 'me' : contactId,
@@ -60,9 +60,29 @@ export const useChatStore = defineStore('chat', {
             time: m.created_at,
             type: 'text',
           }))
+          if (this.activeChatId !== contactId && data.messages.length > localCount) {
+            this.unread[contactId] = (this.unread[contactId] || 0) + (data.messages.length - localCount)
+            this._saveUnread()
+          }
           this._saveConversations()
         }
       } catch {}
+    },
+
+    async syncUnreadFromApi(userId, contactIds) {
+      for (const contactId of contactIds) {
+        if (this.activeChatId === contactId) continue
+        try {
+          const data = await api.getConversation(userId, contactId)
+          if (data.messages && data.messages.length > 0) {
+            const localCount = (this.conversations[contactId] || []).length
+            if (data.messages.length > localCount) {
+              this.unread[contactId] = (this.unread[contactId] || 0) + (data.messages.length - localCount)
+            }
+          }
+        } catch {}
+      }
+      this._saveUnread()
     },
 
     openChat(contact) {
@@ -144,6 +164,17 @@ export const useChatStore = defineStore('chat', {
       this._saveUnread()
       playBuzz()
       setTimeout(() => { this.buzzState[contactId] = false }, 1500)
+    },
+
+    clearConversation(contactId) {
+      delete this.conversations[contactId]
+      this.openChats = this.openChats.filter(c => c.id !== contactId)
+      if (this.activeChatId === contactId) {
+        this.activeChatId = this.openChats.length > 0 ? this.openChats[this.openChats.length - 1].id : null
+      }
+      delete this.unread[contactId]
+      this._saveConversations()
+      this._saveUnread()
     },
   },
 })

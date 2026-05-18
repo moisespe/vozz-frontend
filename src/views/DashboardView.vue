@@ -258,7 +258,7 @@
             class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent/40 cursor-pointer transition-colors">
             <button @click.stop="showProfile(contact)" class="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative">
               {{ contact.name.charAt(0).toUpperCase() }}
-              <span v-if="chatStore.unread[contact.id]" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-destructive"></span>
+              <span v-if="chatStore.unread[contact.id]" class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-destructive animate-pulse ring-1 ring-background"></span>
             </button>
             <p class="text-sm text-foreground truncate flex-1 cursor-pointer" @click="openMobileChat(contact)">{{ contact.name }}</p>
           </div>
@@ -649,7 +649,7 @@
               class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/40 cursor-pointer transition-colors group">
               <button @click.stop="showProfile(contact)" class="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative">
                 {{ contact.name.charAt(0).toUpperCase() }}
-                <span v-if="chatStore.unread[contact.id]" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-destructive"></span>
+                <span v-if="chatStore.unread[contact.id]" class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-destructive animate-pulse ring-1 ring-background"></span>
               </button>
               <p class="text-xs text-foreground truncate flex-1 cursor-pointer" @click="openChatWithContact(contact)">{{ contact.name }}</p>
             </div>
@@ -1140,6 +1140,7 @@ onMounted(async () => {
     if (authStore.user?.id) {
       await callStore.fetchContacts(authStore.user.id)
       await callStore.fetchInvitations(authStore.user.id)
+      chatStore.syncUnreadFromApi(authStore.user.id, callStore.contacts.map(c => c.id))
     }
     const stats = await callStore.getStats()
     todayCalls.value = stats.todayCalls; totalMinutes.value = stats.totalMinutes
@@ -1226,6 +1227,7 @@ onMounted(async () => {
           callStore.contacts.push(contact)
           localStorage.setItem('vozz_contacts', JSON.stringify(callStore.contacts))
         }
+        await callStore.fetchContacts(uid)
       })
 
       onWS('contact:rejected', () => {

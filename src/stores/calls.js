@@ -5,7 +5,10 @@ const CONTACTS_KEY = 'vozz_contacts'
 const REJECTED_KEY = 'vozz_rejected'
 
 function loadContacts() {
-  try { return JSON.parse(localStorage.getItem(CONTACTS_KEY) || '[]') } catch { return [] }
+  try {
+    localStorage.removeItem('vozz_hidden')
+    return JSON.parse(localStorage.getItem(CONTACTS_KEY) || '[]')
+  } catch { return [] }
 }
 
 function loadRejected() {
@@ -63,15 +66,17 @@ export const useCallStore = defineStore('calls', {
       try {
         const data = await api.listContacts(userId)
         if (data.contacts && data.contacts.length > 0) {
-          this.contacts = data.contacts.map(c => ({
+          const apiContacts = data.contacts.map(c => ({
             id: c.user_id, name: c.name, email: c.email, description: ''
           }))
+          for (const ac of apiContacts) {
+            if (!this.contacts.find(c => c.id === ac.id)) {
+              this.contacts.push(ac)
+            }
+          }
           this._saveContacts()
         }
-        // Si el API devuelve vacío, mantener los contactos locales
-      } catch {
-        // Mantener los contactos cacheados en caso de error
-      }
+      } catch {}
     },
 
     async fetchInvitations(userId) {
@@ -88,29 +93,27 @@ export const useCallStore = defineStore('calls', {
     async acceptInvite(userId, fromId, fromName) {
       await api.acceptContact(userId, fromId)
       this.invitations = this.invitations.filter(i => !(i.from_id === fromId && i.to_id === userId))
+      this._addRejected(fromId, userId)
+      await this.fetchContacts(userId)
       const name = fromName || this.allUsers.find(u => u.id === fromId)?.name || 'Contacto'
       if (!this.contacts.find(c => c.id === fromId)) {
         this.contacts.push({ id: fromId, name, email: '', description: '' })
         this._saveContacts()
       }
-      api.listContacts(userId).then(data => {
-        if (data.contacts && data.contacts.length > 0) {
-          this.contacts = data.contacts.map(c => ({
-            id: c.user_id, name: c.name, email: c.email, description: ''
-          }))
-          this._saveContacts()
-        }
-      }).catch(() => {})
     },
 
-    async rejectInvite(userId, fromId) {
-      try { await api.rejectContact(userId, fromId) } catch {}
-      this.invitations = this.invitations.filter(i => !(i.from_id === fromId && i.to_id === userId))
+    _addRejected(fromId, userId) {
       const key = `${fromId}-${userId}`
       if (!this.rejectedPairs.includes(key)) {
         this.rejectedPairs.push(key)
         localStorage.setItem(REJECTED_KEY, JSON.stringify(this.rejectedPairs))
       }
+    },
+
+    async rejectInvite(userId, fromId) {
+      try { await api.rejectContact(userId, fromId) } catch {}
+      this.invitations = this.invitations.filter(i => !(i.from_id === fromId && i.to_id === userId))
+      this._addRejected(fromId, userId)
     },
 
     _clearRejected() {
@@ -121,6 +124,9 @@ export const useCallStore = defineStore('calls', {
       try { await api.removeContact(userId, targetId) } catch {}
       this.contacts = this.contacts.filter(c => c.id !== targetId)
       this._saveContacts()
+      try { await api.deleteConversation(userId, targetId) } catch {}
+      const { useChatStore } = await import('./chat.js')
+      useChatStore().clearConversation(targetId)
     },
 
     async getStats() {
