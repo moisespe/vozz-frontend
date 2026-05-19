@@ -702,6 +702,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/calls'
 import { useChatStore } from '../stores/chat'
+import { startLocalStream } from '../services/webrtc.js'
 import { format } from 'date-fns'
 import Button from '../components/ui/Button.vue'
 
@@ -1001,8 +1002,7 @@ const callContact = async (target) => {
   const name = target.name || target.callerName || 'Contacto'
   const receiverId = target.id || target.receiverId
 
-  const webrtc = await import('../services/webrtc.js')
-  await webrtc.startLocalStream()
+  await startLocalStream()
 
   activeCall.value = { id: Date.now(), name, receiverId, status: 'calling' }
   activeCallDuration.value = 0
@@ -1025,8 +1025,7 @@ const acceptIncomingCall = async () => {
   const caller = incomingCall.value
   incomingCall.value = null
 
-  const webrtc = await import('../services/webrtc.js')
-  await webrtc.startLocalStream()
+  await startLocalStream()
 
   import('../utils/notify.js').then(m => m.playConnect())
   import('../services/ws.js').then(ws => ws.sendWS('call:answer', caller?.id))
