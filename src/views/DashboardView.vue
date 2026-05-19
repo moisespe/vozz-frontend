@@ -997,16 +997,15 @@ const callFromChat = () => {
 }
 
 const callContact = (target) => {
-  // No permitir llamada si ya hay una activa
   if (activeCall.value) { console.warn('[CALL] Ya hay una llamada activa'); return }
   const name = target.name || target.callerName || 'Contacto'
   const receiverId = target.id || target.receiverId
   activeCall.value = { id: Date.now(), name, receiverId, status: 'calling' }
   activeCallDuration.value = 0
   if (callTimerInterval) clearInterval(callTimerInterval)
+  import('../services/webrtc.js').then(w => w.startLocalStream())
   import('../utils/notify.js').then(m => m.playRing())
 
-  // Enviar llamada via WebSocket
   import('../services/ws.js').then(ws => {
     ws.sendWS('call:initiate', receiverId, { from_name: authStore.user?.name || authStore.user?.email?.split('@')[0] || name, call_type: 'voice' })
   })
@@ -1023,6 +1022,7 @@ const acceptIncomingCall = () => {
   if (activeCall.value) { console.warn('[CALL] Ya hay una llamada activa'); return }
   const caller = incomingCall.value
   incomingCall.value = null
+  import('../services/webrtc.js').then(w => w.startLocalStream())
   import('../utils/notify.js').then(m => m.playConnect())
   import('../services/ws.js').then(ws => ws.sendWS('call:answer', caller?.id))
 
