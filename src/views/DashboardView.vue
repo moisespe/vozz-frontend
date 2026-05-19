@@ -996,15 +996,18 @@ const callFromChat = () => {
   }
 }
 
-const callContact = (target) => {
+const callContact = async (target) => {
   if (activeCall.value) { console.warn('[CALL] Ya hay una llamada activa'); return }
   const name = target.name || target.callerName || 'Contacto'
   const receiverId = target.id || target.receiverId
+
+  const webrtc = await import('../services/webrtc.js')
+  await webrtc.startLocalStream()
+
   activeCall.value = { id: Date.now(), name, receiverId, status: 'calling' }
   activeCallDuration.value = 0
   if (callTimerInterval) clearInterval(callTimerInterval)
   import('../utils/notify.js').then(m => m.playRing())
-  requestAudioPermissions()
 
   import('../services/ws.js').then(ws => {
     ws.sendWS('call:initiate', receiverId, { from_name: authStore.user?.name || authStore.user?.email?.split('@')[0] || name, call_type: 'voice' })
@@ -1017,12 +1020,14 @@ const callContact = (target) => {
   }, 2000)
 }
 
-const acceptIncomingCall = () => {
-  // No permitir si ya hay llamada activa
+const acceptIncomingCall = async () => {
   if (activeCall.value) { console.warn('[CALL] Ya hay una llamada activa'); return }
   const caller = incomingCall.value
   incomingCall.value = null
-  requestAudioPermissions()
+
+  const webrtc = await import('../services/webrtc.js')
+  await webrtc.startLocalStream()
+
   import('../utils/notify.js').then(m => m.playConnect())
   import('../services/ws.js').then(ws => ws.sendWS('call:answer', caller?.id))
 
