@@ -414,7 +414,7 @@
         </div>
         <div class="flex-1 flex items-center justify-center p-6 overflow-y-auto">
           <div class="w-full max-w-sm text-center space-y-6">
-            <div class="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto ring-4" :class="selectedChannel.active ? 'ring-green-500/50' : 'ring-primary/20'">
+            <div class="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto" :class="isInChannel(selectedChannel.id) ? 'ring-4 ring-green-500/50' : 'ring-4 ring-primary/20'">
               <svg class="w-10 h-10 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v3m0 0H8m4 0h4m-4-7a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
             </div>
             <div>
@@ -424,13 +424,13 @@
             <div class="bg-card rounded-xl border border-input p-4 text-left">
               <p class="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Miembros en sala ({{ selectedChannel.members.length }})</p>
               <div class="space-y-2">
-                <div v-for="member in selectedChannel.members" :key="member" class="flex items-center gap-2.5">
+                <div v-for="(memberId, idx) in selectedChannel.members" :key="memberId" class="flex items-center gap-2.5">
                   <span class="w-2 h-2 rounded-full bg-green-500 shrink-0"></span>
-                  <span class="text-sm text-foreground">{{ member }}</span>
+                  <span class="text-sm text-foreground">{{ selectedChannel.member_names && selectedChannel.member_names[idx] ? selectedChannel.member_names[idx] : 'Usuario' }}</span>
                 </div>
               </div>
             </div>
-            <button v-if="!selectedChannel.active" @click="joinChannel" class="w-full py-2.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors">Unirse al canal</button>
+            <button v-if="!isInChannel(selectedChannel.id)" @click="joinChannel" class="w-full py-2.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors">Unirse al canal</button>
             <button v-else @click="leaveChannel" class="w-full py-2.5 rounded-xl text-sm font-medium text-destructive border border-destructive/50 hover:bg-destructive/10 transition-colors">Abandonar canal</button>
           </div>
         </div>
@@ -453,7 +453,7 @@
             <div v-for="channel in filteredChannels" :key="channel.id"
               @click="showChannelProfile(channel)"
               class="bg-card border border-input rounded-xl p-4 cursor-pointer hover:bg-accent/20 transition-colors"
-              :class="channel.active ? 'ring-1 ring-green-500/30' : ''">
+              :class="isInChannel(channel.id) ? 'ring-1 ring-green-500/30' : ''">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
                   <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v3m0 0H8m4 0h4m-4-7a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
@@ -461,11 +461,11 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
                     <h3 class="text-sm font-semibold text-foreground"># {{ channel.name }}</h3>
-                    <span v-if="channel.active" class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
+                    <span v-if="isInChannel(channel.id)" class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
                   </div>
                   <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ channel.description }}</p>
                 </div>
-                <span class="text-xs text-muted-foreground shrink-0">{{ channel.members.length }} miembros</span>
+                <span class="text-xs text-muted-foreground shrink-0">{{ channel.members ? channel.members.length : 0 }} miembros</span>
               </div>
             </div>
           </div>
@@ -492,6 +492,17 @@
               <label class="block text-sm font-medium text-muted-foreground mb-1.5">Descripción</label>
               <textarea rows="3" v-model="newChannelDesc" placeholder="Describe de qué trata el canal..."
                 class="w-full px-3.5 py-2.5 bg-accent border border-input rounded-xl text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-colors resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-muted-foreground mb-2">Tipo de canal</label>
+              <div class="flex gap-2">
+                <button @click="channelType='public'"
+                  class="flex-1 px-3.5 py-2.5 rounded-xl text-sm font-medium border transition-colors"
+                  :class="channelType==='public'?'bg-primary text-primary-foreground border-transparent ring-2 ring-primary/30':'bg-accent text-muted-foreground border-input hover:text-foreground'">Público</button>
+                <button @click="channelType='private'"
+                  class="flex-1 px-3.5 py-2.5 rounded-xl text-sm font-medium border transition-colors"
+                  :class="channelType==='private'?'bg-primary text-primary-foreground border-transparent ring-2 ring-primary/30':'bg-accent text-muted-foreground border-input hover:text-foreground'">Privado</button>
+              </div>
             </div>
             <button @click="createChannel" :disabled="!newChannelName.trim()"
               class="w-full py-2.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors disabled:opacity-50">Crear Canal</button>
@@ -614,13 +625,13 @@
             <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activos</h4>
           </div>
           <div class="space-y-0.5">
-            <div v-for="channel in callStore.channels.filter(c => c.active)" :key="channel.id"
+            <div v-for="channel in callStore.channels.filter(c => isInChannel(c.id))" :key="channel.id"
               @click="showChannelProfile(channel)"
               class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/40 cursor-pointer transition-colors">
               <span class="w-2 h-2 rounded-full bg-green-500 shrink-0"></span>
               <span class="text-xs text-foreground truncate">{{ channel.name }}</span>
             </div>
-            <div v-if="callStore.channels.filter(c => c.active).length === 0" class="text-xs text-muted-foreground py-1 px-2">Ningún canal activo</div>
+            <div v-if="callStore.channels.filter(c => isInChannel(c.id)).length === 0" class="text-xs text-muted-foreground py-1 px-2">Ningún canal activo</div>
           </div>
         </div>
 
@@ -766,6 +777,7 @@ const pendingInvitation = ref(null)
 const channelSearch = ref('')
 const newChannelName = ref('')
 const newChannelDesc = ref('')
+const channelType = ref('public')
 const channelCreated = ref(false)
 const permLoading = ref(false)
 const permGranted = ref(false)
@@ -798,7 +810,7 @@ const openSettings = () => {
 }
 const loggedEmail = computed(() => authStore.user?.email || user.value?.email || localStorage.getItem('vozz_login_email') || 'test@gmail.com')
 const loggedName = computed(() => authStore.user?.name || user.value?.name || loggedEmail.value.split('@')[0])
-const activeChannel = computed(() => callStore.activeChannel)
+const activeChannel = computed(() => callStore.channels.find(c => c.members.includes(authStore.user?.id)) || null)
 const searchResults = computed(() =>
   callStore.allUsers.filter(c =>
     c.email.toLowerCase().includes(contactSearch.value.toLowerCase()) &&
@@ -806,7 +818,9 @@ const searchResults = computed(() =>
   )
 )
 const filteredChannels = computed(() =>
-  callStore.channels.filter(c => c.name.toLowerCase().includes(channelSearch.value.toLowerCase()))
+  callStore.channels.filter(c => 
+    c.name && c.name.toLowerCase().includes(channelSearch.value.toLowerCase())
+  )
 )
 const profileContact = ref(null)
 const selectedChannel = ref(null)
@@ -925,23 +939,51 @@ const closeExplore = () => {
   section.value = window.innerWidth >= 1024 ? 'desktop' : 'contacts'
 }
 
-const getUserName = () => profileNickname.value || user.value?.email || 'Usuario'
+const isInChannel = (channelId) => {
+  const uid = authStore.user?.id
+  if (!uid) return false
+  return callStore.isInChannel(channelId, uid)
+}
 
-const joinChannel = () => {
+const joinChannel = async () => {
   if (!selectedChannel.value) return
-  callStore.toggleChannel(selectedChannel.value.id, getUserName())
+  const uid = authStore.user?.id
+  if (uid) {
+    await callStore.joinChannelApi(selectedChannel.value.id, uid)
+    await startLocalStream()
+    import('../utils/notify.js').then(m => m.playConnect())
+    const w = await import('../services/webrtc.js')
+    const ch = callStore.channels.find(c => c.id === selectedChannel.value.id)
+    if (ch) {
+      for (const mid of ch.members) {
+        if (mid !== uid) {
+          w.createChannelOffer(mid)
+        }
+      }
+    }
+  }
   closeChannelProfile()
 }
 
-const leaveChannel = () => {
+const leaveChannel = async () => {
   if (!selectedChannel.value) return
-  callStore.toggleChannel(selectedChannel.value.id, getUserName())
+  const uid = authStore.user?.id
+  if (uid) {
+    await callStore.leaveChannelApi(selectedChannel.value.id, uid)
+    const w = await import('../services/webrtc.js')
+    w.closeAllChannelPeers()
+    w.stopLocalStream()
+  }
   closeChannelProfile()
 }
 
-const createChannel = () => {
+const createChannel = async () => {
   if (!newChannelName.value.trim()) return
-  callStore.createChannel(newChannelName.value.trim(), newChannelDesc.value.trim())
+  const uid = authStore.user?.id
+  if (uid) {
+    await callStore.createChannelApi(newChannelName.value.trim(), newChannelDesc.value.trim(), channelType.value, uid)
+    await callStore.fetchChannels()
+  }
   channelCreated.value = true
   newChannelName.value = ''
   newChannelDesc.value = ''
@@ -1144,6 +1186,7 @@ onMounted(async () => {
     if (authStore.user?.id) {
       await callStore.fetchContacts(authStore.user.id)
       await callStore.fetchInvitations(authStore.user.id)
+      await callStore.fetchChannels()
       chatStore.syncUnreadFromApi(authStore.user.id, callStore.contacts.map(c => c.id))
     }
     const stats = await callStore.getStats()
@@ -1273,12 +1316,66 @@ onMounted(async () => {
         else chatOpen.value = true
       })
 
-      // Polling de invitaciones y contactos cada 5s como respaldo
+      // Canal de voz - señalización WebRTC
+      onWS('channel:offer', async (msg) => {
+        try {
+          const w = await import('../services/webrtc.js')
+          await w.createAnswer(msg.from_id, msg.sdp, true)
+        } catch (e) { console.error('[WS] channel:offer error:', e) }
+      })
+
+      onWS('channel:answer', async (msg) => {
+        try {
+          const w = await import('../services/webrtc.js')
+          await w.handleChannelAnswer(msg.from_id, msg.sdp)
+        } catch (e) { console.error('[WS] channel:answer error:', e) }
+      })
+
+      onWS('channel:ice', async (msg) => {
+        try {
+          const w = await import('../services/webrtc.js')
+          await w.handleChannelIce(msg.from_id, msg.candidate)
+        } catch (e) { console.error('[WS] channel:ice error:', e) }
+      })
+
+      onWS('channel:user_joined', async (msg) => {
+        await callStore.fetchChannels()
+        const uid = authStore.user?.id
+        if (uid && msg.from_id !== uid) {
+          const w = await import('../services/webrtc.js')
+          w.createChannelOffer(msg.from_id)
+        }
+      })
+
+      onWS('channel:user_left', async (msg) => {
+        await callStore.fetchChannels()
+        const w = await import('../services/webrtc.js')
+        w.removeChannelPeer(msg.from_id)
+      })
+
+      onWS('channel:created', async (msg) => {
+        if (!callStore.channels.find(c => c.id === msg.to_id)) {
+          callStore.channels.push({
+            id: msg.to_id,
+            name: msg.payload,
+            description: '',
+            owner_id: msg.from_id,
+            type: 'public',
+            members: [],
+            member_names: [],
+            created_at: new Date().toISOString(),
+          })
+        }
+        await callStore.fetchChannels()
+      })
+
+      // Polling de invitaciones, contactos y canales cada 5s como respaldo
       invitePoll = setInterval(async () => {
         const uid = authStore.user?.id
         if (uid) {
           await callStore.fetchInvitations(uid)
           await callStore.fetchContacts(uid)
+          await callStore.fetchChannels()
         }
       }, 5000)
     }

@@ -66,4 +66,18 @@ export const api = {
   listInvitations: (userId) => request(`/api/contacts/invitations?user_id=${userId}`),
 
   health: () => request('/health'),
+
+  listChannels: () => request('/api/channels'),
+
+  createChannel: (name, description, type, ownerId) =>
+    request('/api/channels/create', { method: 'POST', body: JSON.stringify({ name, description, type, owner_id: ownerId }) }),
+
+  joinChannel: (channelId, userId) =>
+    request('/api/channels/join', { method: 'POST', body: JSON.stringify({ channel_id: channelId, user_id: userId }) }),
+
+  leaveChannel: (channelId, userId) =>
+    request('/api/channels/leave', { method: 'POST', body: JSON.stringify({ channel_id: channelId, user_id: userId }) }),
+
+  deleteChannel: (channelId, userId) =>
+    request('/api/channels/delete', { method: 'POST', body: JSON.stringify({ channel_id: channelId, user_id: userId }) }),
 }

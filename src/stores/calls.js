@@ -29,28 +29,13 @@ export const useCallStore = defineStore('calls', {
   getters: {
     onlineContacts: (state) => state.contacts,
     offlineContacts: (state) => [],
-    activeChannel: (state) => state.channels.find(c => c.active) || null,
+    activeChannel: (state) => null,
     pendingInvitations: (state) => state.invitations.filter(i => !state.rejectedPairs.includes(`${i.from_id}-${i.to_id}`)),
   },
 
   actions: {
     _saveContacts() {
       localStorage.setItem(CONTACTS_KEY, JSON.stringify(this.contacts))
-    },
-
-    toggleChannel(channelId, userName) {
-      this.channels.forEach(c => {
-        if (c.id === channelId) {
-          if (!c.active) { c.active = true; if (userName && !c.members.includes(userName)) c.members.push(userName) }
-          else { c.active = false; if (userName) c.members = c.members.filter(m => m !== userName) }
-        } else { c.active = false }
-      })
-    },
-
-    createChannel(name, description) {
-      const id = Math.max(0, ...this.channels.map(c => c.id)) + 1
-      this.channels.push({ id, name, description, members: [], active: false })
-      return this.channels[this.channels.length - 1]
     },
 
     async fetchAllUsers() {
@@ -116,10 +101,6 @@ export const useCallStore = defineStore('calls', {
       this._addRejected(fromId, userId)
     },
 
-    _clearRejected() {
-      localStorage.removeItem(REJECTED_KEY)
-    },
-
     async removeContact(userId, targetId) {
       try { await api.removeContact(userId, targetId) } catch {}
       this.contacts = this.contacts.filter(c => c.id !== targetId)
@@ -127,6 +108,55 @@ export const useCallStore = defineStore('calls', {
       try { await api.deleteConversation(userId, targetId) } catch {}
       const { useChatStore } = await import('./chat.js')
       useChatStore().clearConversation(targetId)
+    },
+
+    // Canales de voz
+    async fetchChannels() {
+      try {
+        const data = await api.listChannels()
+        if (data.channels) {
+          for (const ch of data.channels) {
+            const idx = this.channels.findIndex(c => c.id === ch.id)
+            if (idx >= 0) {
+              this.channels[idx] = ch
+            } else {
+              this.channels.push(ch)
+            }
+          }
+        }
+      } catch {}
+    },
+
+    async createChannelApi(name, description, type, ownerId) {
+      const data = await api.createChannel(name, description, type, ownerId)
+      if (!this.channels.find(c => c.id === data.channel.id)) {
+        this.channels.push(data.channel)
+      }
+      return data.channel
+    },
+
+    async joinChannelApi(channelId, userId) {
+      const data = await api.joinChannel(channelId, userId)
+      const idx = this.channels.findIndex(c => c.id === channelId)
+      if (idx >= 0) this.channels[idx] = data.channel
+      return data.channel
+    },
+
+    async leaveChannelApi(channelId, userId) {
+      const data = await api.leaveChannel(channelId, userId)
+      const idx = this.channels.findIndex(c => c.id === channelId)
+      if (idx >= 0) this.channels[idx] = data.channel
+      return data.channel
+    },
+
+    async deleteChannelApi(channelId, userId) {
+      await api.deleteChannel(channelId, userId)
+      this.channels = this.channels.filter(c => c.id !== channelId)
+    },
+
+    isInChannel(channelId, userId) {
+      const ch = this.channels.find(c => c.id === channelId)
+      return ch ? ch.members.includes(userId) : false
     },
 
     async getStats() {

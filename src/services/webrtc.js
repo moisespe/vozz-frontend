@@ -4,6 +4,7 @@ let localStream = null
 let peerConnection = null
 let remoteAudio = null
 let onRemoteStream = null
+const channelPeers = {}
 
 const STUN = { urls: 'stun:stun.l.google.com:19302' }
 
@@ -15,16 +16,16 @@ export async function startLocalStream() {
   if (localStream) return localStream
   try {
     const savedInput = localStorage.getItem('vozz_audio_input')
-    const constraints = { audio: true, video: false }
+    const constraints = { audio: { echoCancellation: true, noiseSuppression: true }, video: false }
     if (savedInput) {
-      constraints.audio = { deviceId: { exact: savedInput } }
+      constraints.audio = { deviceId: { exact: savedInput }, echoCancellation: true, noiseSuppression: true }
     }
     localStream = await navigator.mediaDevices.getUserMedia(constraints)
     return localStream
-  } catch (e) {
-    console.warn('[WebRTC] Error getting microphone:', e)
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    } catch (e) {
+      console.warn('[WebRTC] Error getting microphone:', e)
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false })
       return localStream
     } catch (e2) {
       console.warn('[WebRTC] Fallback mic also failed:', e2)
@@ -52,60 +53,112 @@ export function createRemoteAudio() {
   return remoteAudio
 }
 
+function createPC(remoteId, onIceCandidate, isChannel = false) {
+  const pc = new RTCPeerConnection({ iceServers: [STUN] })
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      try { pc.addTrack(track, localStream) } catch {}
+    })
+  }
+  pc.onicecandidate = (e) => {
+    if (e.candidate && onIceCandidate) {
+      onIceCandidate(e.candidate)
+    }
+  }
+  pc.ontrack = (e) => {
+    if (isChannel && channelPeers[remoteId]) {
+      channelPeers[remoteId].audio.srcObject = e.streams[0]
+      channelPeers[remoteId].audio.play().catch(() => {})
+    } else if (!isChannel) {
+      const audio = createRemoteAudio()
+      audio.srcObject = e.streams[0]
+    }
+    if (onRemoteStream) onRemoteStream(e.streams[0])
+  }
+  return pc
+}
+
 export async function createOffer(toId) {
   const stream = await startLocalStream()
   if (!stream) return
-
-  const pc = new RTCPeerConnection({ iceServers: [STUN] })
+  const pc = createPC(toId, (candidate) => {
+    sendWS('webrtc:ice', toId, { candidate })
+  })
   peerConnection = pc
-
-  stream.getTracks().forEach(track => pc.addTrack(track, stream))
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      sendWS('webrtc:ice', toId, { candidate: e.candidate })
-    }
-  }
-
-  pc.ontrack = (e) => {
-    const audio = createRemoteAudio()
-    audio.srcObject = e.streams[0]
-    if (onRemoteStream) onRemoteStream(e.streams[0])
-  }
-
   const offer = await pc.createOffer()
   await pc.setLocalDescription(offer)
   sendWS('webrtc:offer', toId, { sdp: offer })
   return pc
 }
 
-export async function createAnswer(fromId, offerSdp) {
+export async function createAnswer(fromId, offerSdp, isChannel = false) {
   const stream = await startLocalStream()
   if (!stream) return
-
-  const pc = new RTCPeerConnection({ iceServers: [STUN] })
-  peerConnection = pc
-
-  stream.getTracks().forEach(track => pc.addTrack(track, stream))
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      sendWS('webrtc:ice', fromId, { candidate: e.candidate })
-    }
+  const prefix = isChannel ? 'channel:' : 'webrtc:'
+  const pc = createPC(fromId, (candidate) => {
+    sendWS(prefix + 'ice', fromId, { candidate })
+  }, isChannel)
+  if (isChannel) {
+    channelPeers[fromId] = { pc, audio: new Audio() }
+    channelPeers[fromId].audio.autoplay = true
+  } else {
+    peerConnection = pc
   }
-
-  pc.ontrack = (e) => {
-    const audio = createRemoteAudio()
-    audio.srcObject = e.streams[0]
-    if (onRemoteStream) onRemoteStream(e.streams[0])
-  }
-
   const offer = new RTCSessionDescription(offerSdp)
   await pc.setRemoteDescription(offer)
   const answer = await pc.createAnswer()
   await pc.setLocalDescription(answer)
-  sendWS('webrtc:answer', fromId, { sdp: answer })
+  sendWS(prefix + 'answer', fromId, { sdp: answer })
   return pc
+}
+
+export async function createChannelOffer(toId) {
+  const stream = await startLocalStream()
+  if (!stream) return
+  const pc = createPC(toId, (candidate) => {
+    sendWS('channel:ice', toId, { candidate })
+  }, true)
+  channelPeers[toId] = { pc, audio: new Audio() }
+  channelPeers[toId].audio.autoplay = true
+  const offer = await pc.createOffer()
+  await pc.setLocalDescription(offer)
+  sendWS('channel:offer', toId, { sdp: offer })
+  return pc
+}
+
+export async function handleChannelAnswer(fromId, answerSdp) {
+  const peer = channelPeers[fromId]
+  if (!peer) return
+  const answer = new RTCSessionDescription(answerSdp)
+  await peer.pc.setRemoteDescription(answer)
+}
+
+export async function handleChannelIce(fromId, candidate) {
+  const peer = channelPeers[fromId]
+  if (!peer) return
+  try {
+    await peer.pc.addIceCandidate(new RTCIceCandidate(candidate))
+  } catch (e) {
+    console.warn('[Channel] ICE error:', e)
+  }
+}
+
+export function closeAllChannelPeers() {
+  Object.keys(channelPeers).forEach(id => {
+    channelPeers[id].pc.close()
+    channelPeers[id].audio.srcObject = null
+    channelPeers[id].audio = null
+    delete channelPeers[id]
+  })
+}
+
+export function removeChannelPeer(remoteId) {
+  if (channelPeers[remoteId]) {
+    channelPeers[remoteId].pc.close()
+    channelPeers[remoteId].audio.srcObject = null
+    channelPeers[remoteId].audio = null
+    delete channelPeers[remoteId]
+  }
 }
 
 export async function handleAnswer(answerSdp) {
@@ -140,3 +193,5 @@ export function applyOutputDevice(deviceId) {
     remoteAudio.setSinkId(deviceId).catch(() => {})
   }
 }
+
+export function getChannelPeers() { return channelPeers }
