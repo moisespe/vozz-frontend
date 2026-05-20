@@ -52,6 +52,12 @@
       </p>
 
       <p v-if="error" class="text-sm text-destructive text-center mt-4 bg-destructive/10 rounded-lg py-2">{{ error }}</p>
+
+      <button @click="installApp" v-if="showInstall"
+        class="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors h-10 px-4 py-2 border border-input text-muted-foreground hover:text-foreground hover:bg-accent/50">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Instalar app
+      </button>
     </Card>
   </div>
 </template>
@@ -72,6 +78,15 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 const backendStatus = ref('checking')
+const showInstall = ref(false)
+const deferredPrompt = ref(null)
+
+const installApp = () => {
+  if (deferredPrompt.value) {
+    deferredPrompt.value.prompt()
+    deferredPrompt.value.userChoice.then(() => { deferredPrompt.value = null; showInstall.value = false })
+  }
+}
 
 const checkBackend = async () => {
   try {
@@ -106,5 +121,10 @@ const handleLogin = async () => {
 
 onMounted(() => {
   checkBackend()
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    deferredPrompt.value = e
+    showInstall.value = true
+  })
 })
 </script>
