@@ -25,8 +25,9 @@ export function connectWS(userId) {
 
   socket.onclose = () => {
     console.log('WS disconnected')
+    emit('disconnected')
     socket = null
-    reconnectTimer = setTimeout(() => connectWS(userId), 3000)
+    reconnectTimer = setTimeout(() => connectWS(userId), 1000)
   }
 
   socket.onerror = () => {

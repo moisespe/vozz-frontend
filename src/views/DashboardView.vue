@@ -16,10 +16,13 @@
               class="flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
               @click="callContact(contact); showNewCallModal=false">
               <div class="relative shrink-0">
-                <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">{{ contact.name.charAt(0).toUpperCase() }}</div>
-                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" :class="contact.online?'bg-green-500':'bg-muted-foreground'"></span>
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                  :class="callStore.isOnline(contact.id) ? 'bg-green-500/20 text-green-400 ring-2 ring-green-500/50' : 'bg-primary/20 text-primary'">
+                  {{ contact.name.charAt(0).toUpperCase() }}
+                </div>
+                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full" :class="callStore.isOnline(contact.id)?'bg-green-500':'bg-muted-foreground'"></span>
               </div>
-              <div class="min-w-0 flex-1"><p class="text-sm font-medium text-foreground truncate">{{ contact.name }}</p><p class="text-xs" :class="contact.online?'text-green-400':'text-muted-foreground'">{{ contact.online ? 'En línea' : contact.lastSeen }}</p></div>
+              <div class="min-w-0 flex-1"><p class="text-sm font-medium text-foreground truncate">{{ contact.name }}</p><p class="text-xs" :class="callStore.isOnline(contact.id)?'text-green-400':'text-muted-foreground'">{{ callStore.isOnline(contact.id) ? 'En línea' : 'Desconectado' }}</p></div>
             </div>
           </div>
           <button @click="showNewCallModal=false" class="hidden lg:block w-full mt-4 text-sm text-muted-foreground hover:text-foreground py-2 transition-colors">Cancelar</button>
@@ -256,7 +259,8 @@
         <div class="flex-1 overflow-y-auto px-3 py-1">
           <div v-for="contact in filteredMobileContacts" :key="contact.id"
             class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent/40 cursor-pointer transition-colors">
-            <button @click.stop="showProfile(contact)" class="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative">
+            <button @click.stop="showProfile(contact)" class="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative"
+              :class="callStore.isOnline(contact.id) ? 'bg-green-500/20 text-green-400 ring-2 ring-green-500/50' : 'bg-primary/15 text-primary ring-2 ring-transparent'">
               {{ contact.name.charAt(0).toUpperCase() }}
               <span v-if="chatStore.unread[contact.id]" class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-destructive animate-pulse ring-1 ring-background"></span>
             </button>
@@ -420,12 +424,13 @@
             <div>
               <h2 class="text-xl font-bold text-foreground"># {{ selectedChannel.name }}</h2>
               <p class="text-sm text-muted-foreground mt-1">{{ selectedChannel.description }}</p>
+              <p class="text-xs text-muted-foreground mt-2">Creado por {{ selectedChannel.owner_name || 'Usuario' }}</p>
             </div>
             <div class="bg-card rounded-xl border border-input p-4 text-left">
               <p class="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Miembros en sala ({{ selectedChannel.members.length }})</p>
               <div class="space-y-2">
                 <div v-for="(memberId, idx) in selectedChannel.members" :key="memberId" class="flex items-center gap-2.5">
-                  <span class="w-2 h-2 rounded-full bg-green-500 shrink-0"></span>
+                  <span class="w-2 h-2 rounded-full shrink-0" :class="callStore.isOnline(memberId) ? 'bg-green-500' : 'bg-muted-foreground'"></span>
                   <span class="text-sm text-foreground">{{ selectedChannel.member_names && selectedChannel.member_names[idx] ? selectedChannel.member_names[idx] : 'Usuario' }}</span>
                 </div>
               </div>
@@ -582,7 +587,15 @@
               </button>
               <Transition name="fade">
                 <div v-if="menuOpen" class="absolute top-9 left-0 w-48 bg-card border border-input rounded-xl shadow-2xl py-2 overflow-hidden z-50" @click.stop>
-                  <div class="px-4 py-2 border-b border-input mb-1"><p class="text-xs font-bold text-foreground">Vozz</p></div>
+                  <div class="px-4 py-2 border-b border-input mb-1">
+                    <div class="flex items-center justify-between">
+                      <p class="text-xs font-bold text-foreground">Vozz</p>
+                      <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full" :class="wsConnected ? 'bg-green-500' : 'bg-red-500'"></span>
+                        <span class="text-[10px]" :class="wsConnected ? 'text-green-400' : 'text-red-400'">{{ wsConnected ? 'En línea' : 'Desconectado' }}</span>
+                      </div>
+                    </div>
+                  </div>
                   <button @click="section=window.innerWidth >= 1024 ? 'desktop' : 'chats'; menuOpen=false" class="flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors" :class="section==='desktop'||section==='chats'?'bg-primary/10 text-primary':'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground'">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg> Inicio
                     <span v-if="totalUnread>0" class="ml-auto bg-destructive text-white text-xs rounded-full px-1.5 py-0.5 min-w-5 text-center">{{ totalUnread }}</span>
@@ -658,7 +671,8 @@
              <div v-if="callStore.contacts.length === 0" class="text-xs text-muted-foreground px-2 py-1">Sin contactos agregados</div>
              <div v-for="contact in callStore.contacts" :key="contact.id"
               class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/40 cursor-pointer transition-colors group">
-              <button @click.stop="showProfile(contact)" class="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative">
+              <button @click.stop="showProfile(contact)" class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 hover:ring-2 hover:ring-primary/50 transition-all relative"
+                :class="callStore.isOnline(contact.id) ? 'bg-green-500/20 text-green-400 ring-2 ring-green-500/50' : 'bg-primary/15 text-primary ring-2 ring-transparent'">
                 {{ contact.name.charAt(0).toUpperCase() }}
                 <span v-if="chatStore.unread[contact.id]" class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-destructive animate-pulse ring-1 ring-background"></span>
               </button>
@@ -728,6 +742,7 @@ const mobileSearch = ref('')
 const section = ref(window.innerWidth >= 1024 ? 'desktop' : 'contacts')
 const chatOpen = ref(false)
 const menuOpen = ref(false)
+const wsConnected = ref(false)
 const globalBuzz = ref(false)
 const newMessage = ref('')
 const messagesContainer = ref(null)
@@ -949,8 +964,8 @@ const joinChannel = async () => {
   if (!selectedChannel.value) return
   const uid = authStore.user?.id
   if (uid) {
-    await callStore.joinChannelApi(selectedChannel.value.id, uid)
     await startLocalStream()
+    await callStore.joinChannelApi(selectedChannel.value.id, uid)
     import('../utils/notify.js').then(m => m.playConnect())
     const w = await import('../services/webrtc.js')
     const ch = callStore.channels.find(c => c.id === selectedChannel.value.id)
@@ -985,12 +1000,8 @@ const createChannel = async () => {
     await callStore.fetchChannels()
   }
   channelCreated.value = true
-  newChannelName.value = ''
-  newChannelDesc.value = ''
-  setTimeout(() => {
-    channelCreated.value = false
-    section.value = window.innerWidth >= 1024 ? 'desktop' : 'contacts'
-  }, 1500)
+  channelType.value = 'public'
+  setTimeout(() => { channelCreated.value = false }, 2000)
 }
 
 const openChatWithContact = (contact) => {
@@ -1198,6 +1209,21 @@ onMounted(async () => {
       const { connectWS, onWS } = await import('../services/ws.js')
       connectWS(authStore.user.id)
 
+      onWS('connected', async () => {
+        wsConnected.value = true
+        const uid = authStore.user?.id
+        if (uid) {
+          await callStore.fetchContacts(uid)
+          await callStore.fetchInvitations(uid)
+          await callStore.fetchChannels()
+          chatStore.syncUnreadFromApi(uid, callStore.contacts.map(c => c.id))
+        }
+      })
+
+      onWS('disconnected', () => {
+        wsConnected.value = false
+      })
+
       unsubscribeIncoming = onWS('call:initiate', (msg) => {
         incomingCall.value = { name: msg.from_name || 'Alguien', id: msg.from_id }
         import('../utils/notify.js').then(m => m.playIncoming())
@@ -1339,15 +1365,14 @@ onMounted(async () => {
       })
 
       onWS('channel:user_joined', async (msg) => {
-        await callStore.fetchChannels()
         const uid = authStore.user?.id
-        if (uid && msg.from_id !== uid) {
-          const w = await import('../services/webrtc.js')
-          w.createChannelOffer(msg.from_id)
-        }
+        if (!uid || msg.from_id === uid) return
+        await callStore.fetchChannels()
       })
 
       onWS('channel:user_left', async (msg) => {
+        const uid = authStore.user?.id
+        if (!uid || msg.from_id === uid) return
         await callStore.fetchChannels()
         const w = await import('../services/webrtc.js')
         w.removeChannelPeer(msg.from_id)
@@ -1369,6 +1394,23 @@ onMounted(async () => {
         await callStore.fetchChannels()
       })
 
+      onWS('presence:online', (msg) => {
+        callStore._setOnline(msg.from_id)
+      })
+
+      onWS('presence:offline', (msg) => {
+        callStore._setOffline(msg.from_id)
+      })
+
+      onWS('presence:list', (msg) => {
+        if (msg.payload) {
+          msg.payload.split(',').forEach(id => {
+            const uid = parseInt(id, 10)
+            if (uid) callStore._setOnline(uid)
+          })
+        }
+      })
+
       // Polling de invitaciones, contactos y canales cada 5s como respaldo
       invitePoll = setInterval(async () => {
         const uid = authStore.user?.id
@@ -1378,6 +1420,15 @@ onMounted(async () => {
           await callStore.fetchChannels()
         }
       }, 5000)
+
+      // Refrescar datos al volver a la pestaña (móvil/background)
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && authStore.user?.id) {
+          callStore.fetchChannels()
+          callStore.fetchContacts(authStore.user.id)
+          callStore.fetchInvitations(authStore.user.id)
+        }
+      })
     }
   } catch {}
 })

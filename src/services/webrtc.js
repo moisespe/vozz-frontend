@@ -92,6 +92,13 @@ export async function createOffer(toId) {
 }
 
 export async function createAnswer(fromId, offerSdp, isChannel = false) {
+  if (isChannel && channelPeers[fromId]) {
+    const audio = new Audio()
+    audio.autoplay = true
+    audio.setAttribute('playsinline', '')
+    channelPeers[fromId].audio = audio
+    return channelPeers[fromId].pc
+  }
   const stream = await startLocalStream()
   if (!stream) return
   const prefix = isChannel ? 'channel:' : 'webrtc:'
@@ -99,8 +106,10 @@ export async function createAnswer(fromId, offerSdp, isChannel = false) {
     sendWS(prefix + 'ice', fromId, { candidate })
   }, isChannel)
   if (isChannel) {
-    channelPeers[fromId] = { pc, audio: new Audio() }
-    channelPeers[fromId].audio.autoplay = true
+    const audio = new Audio()
+    audio.autoplay = true
+    audio.setAttribute('playsinline', '')
+    channelPeers[fromId] = { pc, audio }
   } else {
     peerConnection = pc
   }
@@ -113,13 +122,16 @@ export async function createAnswer(fromId, offerSdp, isChannel = false) {
 }
 
 export async function createChannelOffer(toId) {
+  if (channelPeers[toId]) return channelPeers[toId].pc
   const stream = await startLocalStream()
   if (!stream) return
   const pc = createPC(toId, (candidate) => {
     sendWS('channel:ice', toId, { candidate })
   }, true)
-  channelPeers[toId] = { pc, audio: new Audio() }
-  channelPeers[toId].audio.autoplay = true
+  const audio = new Audio()
+  audio.autoplay = true
+  audio.setAttribute('playsinline', '')
+  channelPeers[toId] = { pc, audio }
   const offer = await pc.createOffer()
   await pc.setLocalDescription(offer)
   sendWS('channel:offer', toId, { sdp: offer })
@@ -135,7 +147,7 @@ export async function handleChannelAnswer(fromId, answerSdp) {
 
 export async function handleChannelIce(fromId, candidate) {
   const peer = channelPeers[fromId]
-  if (!peer) return
+  if (!peer || !peer.pc) return
   try {
     await peer.pc.addIceCandidate(new RTCIceCandidate(candidate))
   } catch (e) {

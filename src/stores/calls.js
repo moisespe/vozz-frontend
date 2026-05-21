@@ -24,11 +24,12 @@ export const useCallStore = defineStore('calls', {
     channels: [],
     invitations: [],
     rejectedPairs: loadRejected(),
+    onlineUsers: [],
   }),
 
   getters: {
-    onlineContacts: (state) => state.contacts,
-    offlineContacts: (state) => [],
+    onlineContacts: (state) => state.contacts.filter(c => state.onlineUsers.includes(c.id)),
+    offlineContacts: (state) => state.contacts.filter(c => !state.onlineUsers.includes(c.id)),
     activeChannel: (state) => null,
     pendingInvitations: (state) => state.invitations.filter(i => !state.rejectedPairs.includes(`${i.from_id}-${i.to_id}`)),
   },
@@ -118,7 +119,8 @@ export const useCallStore = defineStore('calls', {
           for (const ch of data.channels) {
             const idx = this.channels.findIndex(c => c.id === ch.id)
             if (idx >= 0) {
-              this.channels[idx] = ch
+              this.channels[idx].members = ch.members
+              this.channels[idx].member_names = ch.member_names
             } else {
               this.channels.push(ch)
             }
@@ -138,7 +140,12 @@ export const useCallStore = defineStore('calls', {
     async joinChannelApi(channelId, userId) {
       const data = await api.joinChannel(channelId, userId)
       const idx = this.channels.findIndex(c => c.id === channelId)
-      if (idx >= 0) this.channels[idx] = data.channel
+      if (idx >= 0) {
+        this.channels[idx].members = data.channel.members
+        this.channels[idx].member_names = data.channel.member_names
+      } else {
+        this.channels.push(data.channel)
+      }
       return data.channel
     },
 
@@ -164,5 +171,19 @@ export const useCallStore = defineStore('calls', {
     },
 
     async getRecentCalls() { return [] },
+
+    isOnline(userId) {
+      return this.onlineUsers.includes(userId)
+    },
+
+    _setOnline(userId) {
+      if (!this.onlineUsers.includes(userId)) {
+        this.onlineUsers.push(userId)
+      }
+    },
+
+    _setOffline(userId) {
+      this.onlineUsers = this.onlineUsers.filter(id => id !== userId)
+    },
   }
 })
