@@ -112,15 +112,19 @@ export const useCallStore = defineStore('calls', {
     },
 
     // Canales de voz
-    async fetchChannels() {
+    async fetchChannels(userId) {
       try {
         const data = await api.listChannels()
         if (data.channels) {
           for (const ch of data.channels) {
             const idx = this.channels.findIndex(c => c.id === ch.id)
             if (idx >= 0) {
+              const wasMember = userId && this.channels[idx].members.includes(userId)
               this.channels[idx].members = ch.members
               this.channels[idx].member_names = ch.member_names
+              if (wasMember && userId && !this.channels[idx].members.includes(userId)) {
+                this.channels[idx].members.push(userId)
+              }
             } else {
               this.channels.push(ch)
             }
@@ -152,7 +156,10 @@ export const useCallStore = defineStore('calls', {
     async leaveChannelApi(channelId, userId) {
       const data = await api.leaveChannel(channelId, userId)
       const idx = this.channels.findIndex(c => c.id === channelId)
-      if (idx >= 0) this.channels[idx] = data.channel
+      if (idx >= 0) {
+        this.channels[idx].members = data.channel.members
+        this.channels[idx].member_names = data.channel.member_names
+      }
       return data.channel
     },
 

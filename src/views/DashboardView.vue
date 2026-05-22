@@ -838,7 +838,8 @@ const filteredChannels = computed(() =>
   )
 )
 const profileContact = ref(null)
-const selectedChannel = ref(null)
+const selectedChannelId = ref(null)
+const selectedChannel = computed(() => callStore.channels.find(c => c.id === selectedChannelId.value) || null)
 const selectedChannelPrev = ref(null)
 const isCallingThisProfile = computed(() => activeCall.value && profileContact.value && activeCall.value.name === profileContact.value.name)
 const isProfileContact = computed(() => profileContact.value && callStore.contacts.some(c => c.id === profileContact.value.id))
@@ -940,13 +941,13 @@ const closeProfile = () => {
 }
 
 const showChannelProfile = (channel) => {
-  selectedChannel.value = channel
+  selectedChannelId.value = channel.id
   selectedChannelPrev.value = section.value
   section.value = 'channel'
 }
 
 const closeChannelProfile = () => {
-  selectedChannel.value = null
+  selectedChannelId.value = null
   section.value = selectedChannelPrev.value || (window.innerWidth >= 1024 ? 'desktop' : 'contacts')
 }
 
@@ -989,6 +990,9 @@ const leaveChannel = async () => {
     w.closeAllChannelPeers()
     w.stopLocalStream()
   }
+  const audio = new Audio('/audio/out_channel.mp3')
+  audio.volume = 0.5
+  audio.play().catch(() => {})
   closeChannelProfile()
 }
 
@@ -997,11 +1001,16 @@ const createChannel = async () => {
   const uid = authStore.user?.id
   if (uid) {
     await callStore.createChannelApi(newChannelName.value.trim(), newChannelDesc.value.trim(), channelType.value, uid)
-    await callStore.fetchChannels()
+    await callStore.fetchChannels(authStore.user?.id)
   }
   channelCreated.value = true
+  newChannelName.value = ''
+  newChannelDesc.value = ''
   channelType.value = 'public'
-  setTimeout(() => { channelCreated.value = false }, 2000)
+  setTimeout(() => {
+    channelCreated.value = false
+    section.value = window.innerWidth >= 1024 ? 'desktop' : 'contacts'
+  }, 1500)
 }
 
 const openChatWithContact = (contact) => {
@@ -1197,7 +1206,7 @@ onMounted(async () => {
     if (authStore.user?.id) {
       await callStore.fetchContacts(authStore.user.id)
       await callStore.fetchInvitations(authStore.user.id)
-      await callStore.fetchChannels()
+      await callStore.fetchChannels(authStore.user?.id)
       chatStore.syncUnreadFromApi(authStore.user.id, callStore.contacts.map(c => c.id))
     }
     const stats = await callStore.getStats()
@@ -1215,7 +1224,7 @@ onMounted(async () => {
         if (uid) {
           await callStore.fetchContacts(uid)
           await callStore.fetchInvitations(uid)
-          await callStore.fetchChannels()
+          await callStore.fetchChannels(authStore.user?.id)
           chatStore.syncUnreadFromApi(uid, callStore.contacts.map(c => c.id))
         }
       })
@@ -1367,13 +1376,26 @@ onMounted(async () => {
       onWS('channel:user_joined', async (msg) => {
         const uid = authStore.user?.id
         if (!uid || msg.from_id === uid) return
-        await callStore.fetchChannels()
+        const ch = callStore.channels.find(c => c.id === msg.to_id)
+        if (ch && !ch.members.includes(msg.from_id)) {
+          ch.members.push(msg.from_id)
+          ch.member_names.push(msg.from_name || 'Usuario')
+        }
+        await callStore.fetchChannels(authStore.user?.id)
       })
 
       onWS('channel:user_left', async (msg) => {
         const uid = authStore.user?.id
         if (!uid || msg.from_id === uid) return
-        await callStore.fetchChannels()
+        const ch = callStore.channels.find(c => c.id === msg.to_id)
+        if (ch) {
+          const idx = ch.members.indexOf(msg.from_id)
+          if (idx >= 0) {
+            ch.members.splice(idx, 1)
+            ch.member_names.splice(idx, 1)
+          }
+        }
+        await callStore.fetchChannels(authStore.user?.id)
         const w = await import('../services/webrtc.js')
         w.removeChannelPeer(msg.from_id)
       })
@@ -1391,7 +1413,7 @@ onMounted(async () => {
             created_at: new Date().toISOString(),
           })
         }
-        await callStore.fetchChannels()
+        await callStore.fetchChannels(authStore.user?.id)
       })
 
       onWS('presence:online', (msg) => {
@@ -1417,14 +1439,14 @@ onMounted(async () => {
         if (uid) {
           await callStore.fetchInvitations(uid)
           await callStore.fetchContacts(uid)
-          await callStore.fetchChannels()
+          await callStore.fetchChannels(authStore.user?.id)
         }
       }, 5000)
 
       // Refrescar datos al volver a la pestaña (móvil/background)
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && authStore.user?.id) {
-          callStore.fetchChannels()
+          callStore.fetchChannels(authStore.user?.id)
           callStore.fetchContacts(authStore.user.id)
           callStore.fetchInvitations(authStore.user.id)
         }
