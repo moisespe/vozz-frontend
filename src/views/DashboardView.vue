@@ -435,8 +435,12 @@
                 </div>
               </div>
             </div>
-            <button v-if="!isInChannel(selectedChannel.id)" @click="joinChannel" class="w-full py-2.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors">Unirse al canal</button>
-            <button v-else @click="leaveChannel" class="w-full py-2.5 rounded-xl text-sm font-medium text-destructive border border-destructive/50 hover:bg-destructive/10 transition-colors">Abandonar canal</button>
+            <div class="flex flex-col gap-2">
+              <button v-if="!isInChannel(selectedChannel.id)" @click="joinChannel" class="w-full py-2.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors">Unirse al canal</button>
+              <button v-else @click="leaveChannel" class="w-full py-2.5 rounded-xl text-sm font-medium text-destructive border border-destructive/50 hover:bg-destructive/10 transition-colors">Abandonar canal</button>
+              <button v-if="selectedChannel.owner_id === authStore.user?.id" @click="deleteChannel"
+                class="w-full py-2 rounded-lg text-xs font-medium text-destructive border border-destructive/30 hover:bg-destructive/10 transition-colors">Eliminar canal</button>
+            </div>
           </div>
         </div>
       </div>
@@ -469,6 +473,7 @@
                     <span v-if="isInChannel(channel.id)" class="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></span>
                   </div>
                   <p class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ channel.description }}</p>
+                  <p class="text-[10px] text-muted-foreground/60 mt-0.5">Creado por {{ channel.owner_name || 'Usuario' }}</p>
                 </div>
                 <span class="text-xs text-muted-foreground shrink-0">{{ channel.members ? channel.members.length : 0 }} miembros</span>
               </div>
@@ -996,6 +1001,18 @@ const leaveChannel = async () => {
   closeChannelProfile()
 }
 
+const deleteChannel = async () => {
+  if (!selectedChannel.value) return
+  const uid = authStore.user?.id
+  if (uid && selectedChannel.value.owner_id === uid) {
+    await callStore.deleteChannelApi(selectedChannel.value.id, uid)
+    const w = await import('../services/webrtc.js')
+    w.closeAllChannelPeers()
+    w.stopLocalStream()
+  }
+  closeChannelProfile()
+}
+
 const createChannel = async () => {
   if (!newChannelName.value.trim()) return
   const uid = authStore.user?.id
@@ -1407,6 +1424,7 @@ onMounted(async () => {
             name: msg.payload,
             description: '',
             owner_id: msg.from_id,
+            owner_name: msg.from_name || 'Usuario',
             type: 'public',
             members: [],
             member_names: [],
@@ -1414,6 +1432,18 @@ onMounted(async () => {
           })
         }
         await callStore.fetchChannels(authStore.user?.id)
+      })
+
+      onWS('channel:deleted', async (msg) => {
+        const uid = authStore.user?.id
+        const wasInChannel = callStore.isInChannel(msg.to_id, uid)
+        callStore.channels = callStore.channels.filter(c => c.id !== msg.to_id)
+        if (wasInChannel && selectedChannelId.value === msg.to_id) {
+          closeChannelProfile()
+          const w = await import('../services/webrtc.js')
+          w.closeAllChannelPeers()
+          w.stopLocalStream()
+        }
       })
 
       onWS('presence:online', (msg) => {

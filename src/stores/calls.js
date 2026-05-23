@@ -119,6 +119,7 @@ export const useCallStore = defineStore('calls', {
           for (const ch of data.channels) {
             const idx = this.channels.findIndex(c => c.id === ch.id)
             if (idx >= 0) {
+              this.channels[idx].owner_name = ch.owner_name
               const wasMember = userId && this.channels[idx].members.includes(userId)
               this.channels[idx].members = ch.members
               this.channels[idx].member_names = ch.member_names
